@@ -23,6 +23,7 @@ pub fn handle_connection(mut stream: TcpStream, store: Arc<Mutex<Store>>) {
         if parts[0].to_lowercase() == "set" {
             if parts.len() != 3 {
                 writeln!(stream, "error in number of arguments").unwrap();
+                continue;
             }
             let mut shared = store.lock().unwrap();
             let key = parts[1];
@@ -32,6 +33,7 @@ pub fn handle_connection(mut stream: TcpStream, store: Arc<Mutex<Store>>) {
         } else if parts[0].to_lowercase() == "get" {
             if parts.len() != 2 {
                 writeln!(stream, "error in number of arguments").unwrap();
+                continue;
             }
             let shared = store.lock().unwrap();
             let key = parts[1];
