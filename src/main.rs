@@ -1,35 +1,11 @@
-use std::{collections::HashMap, io};
-mod store;
+use std::sync::{Arc, Mutex};
 mod handler;
-
+mod server;
+mod store;
+use crate::store::Store;
 fn main() {
-    let mut hash: HashMap<String, String> = HashMap::new();
+    let store = Store::new();
+    let hash: Arc<Mutex<Store>> = Arc::new(Mutex::new(store));
 
-    loop {
-        let mut input = String::new();
-        io::stdin()
-            .read_line(&mut input)
-            .expect("failed to read line");
-        let input = input.trim();
-        let vec: Vec<&str> = input.split_whitespace().collect();
-        if vec.is_empty() {
-            continue;
-        }
-        if vec[0].to_lowercase() == "set" {
-            assert_eq!(vec.len(), 3);
-            let key = vec[1];
-            let value = vec[2];
-            hash.insert(key.to_string(), value.to_string());
-        } else if vec[0].to_lowercase() == "get" {
-            assert_eq!(vec.len(), 2);
-            let key = vec[1];
-            if let Some(val) = hash.get(key) {
-                println!("{:?}", val);
-            } else {
-                println!("(nil)")
-            }
-        } else {
-            println!("invalid command");
-        }
-    }
+    server::start_server(hash);
 }
