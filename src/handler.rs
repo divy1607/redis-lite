@@ -1,10 +1,11 @@
+use crate::config::FILE_PATH;
+use crate::store::Store;
 use std::{
+    fs::OpenOptions,
     io::{BufRead, BufReader},
     net::TcpStream,
     sync::{Arc, Mutex},
 };
-
-use crate::store::Store;
 
 use std::io::Write;
 
@@ -29,6 +30,12 @@ pub fn handle_connection(mut stream: TcpStream, store: Arc<Mutex<Store>>) {
             let key = parts[1];
             let value = parts[2];
             shared.set(key.to_string(), value.to_string());
+            let mut file = OpenOptions::new()
+                .append(true)
+                .create(true)
+                .open(FILE_PATH)
+                .unwrap();
+            writeln!(file, "{}", li).unwrap();
             drop(shared);
         } else if parts[0].to_lowercase() == "get" {
             if parts.len() != 2 {
@@ -44,7 +51,6 @@ pub fn handle_connection(mut stream: TcpStream, store: Arc<Mutex<Store>>) {
                 writeln!(stream, "(nil)").unwrap();
             }
             drop(shared);
-
         } else {
             writeln!(stream, "invalid command").unwrap();
         }
