@@ -44,11 +44,9 @@ pub fn handle_connection(mut stream: TcpStream, store: Arc<Mutex<Store>>) {
                 }
                 continue;
             }
-            // let mut shared = store.lock().unwrap()
             let mut shared = match store.lock() {
                 Ok(value) => value,
                 Err(_) => {
-                    // println!("error");
                     break;
                 }
             };
@@ -61,7 +59,6 @@ pub fn handle_connection(mut stream: TcpStream, store: Arc<Mutex<Store>>) {
                     break;
                 }
             };
-            // .unwrap();
             match writeln!(file, "{}", li) {
                 Ok(_) => {}
                 Err(_) => {
@@ -103,7 +100,6 @@ pub fn handle_connection(mut stream: TcpStream, store: Arc<Mutex<Store>>) {
             }
             drop(shared);
         } else {
-            // let event= writeln!(stream, "invalid command");
             match writeln!(stream, "invalid command") {
                 Ok(_) => {}
                 Err(_) => {
