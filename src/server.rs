@@ -1,5 +1,5 @@
 use crate::config::FILE_PATH;
-use crate::{rewrite};
+use crate::rewrite;
 use crate::{handler::handle_connection, store::Store};
 use std::{
     fs,
@@ -9,8 +9,18 @@ use std::{
 };
 
 pub fn start_server(store: Arc<Mutex<Store>>) {
-    let contents = fs::read_to_string(FILE_PATH).unwrap();
-    let mut shared = store.lock().unwrap();
+    let contents = match fs::read_to_string(FILE_PATH) {
+        Ok(value) => value, 
+        Err(_) => {
+            return; 
+        }
+    }; 
+    let mut shared = match store.lock() {
+        Ok(value) => value,
+        Err(_) => {
+            return;
+        }
+    };
     for line in contents.lines() {
         let line = line.trim();
         let parts: Vec<&str> = line.split_whitespace().collect();
@@ -26,10 +36,20 @@ pub fn start_server(store: Arc<Mutex<Store>>) {
     }
     drop(shared);
     rewrite::rewrite(store.clone());
-    let listener = TcpListener::bind("127.0.0.1:8000").unwrap();
+    let listener = match TcpListener::bind("127.0.0.1:8000") {
+        Ok(value) => {value}
+        Err(_) => {
+            return;
+        }
+    };
 
     for stream in listener.incoming() {
-        let stream = stream.unwrap();
+        let stream = match stream {
+            Ok(value) => {value}
+            Err(_) => {
+                break;
+            }
+        };
         let value = store.clone();
         thread::spawn(move || {
             handle_connection(stream, value);

@@ -10,10 +10,23 @@ use std::{
 use std::io::Write;
 
 pub fn handle_connection(mut stream: TcpStream, store: Arc<Mutex<Store>>) {
-    let buf_reader = BufReader::new(stream.try_clone().unwrap());
+    let cloned_stream = match stream.try_clone() {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("Failed to clone stream: {}", e);
+            return; 
+        }
+    };
+
+    let buf_reader = BufReader::new(cloned_stream);
 
     for line in buf_reader.lines() {
-        let line = line.unwrap();
+        let line = match line {
+            Ok(value) => value,
+            Err(_) => {
+                break;
+            }
+        };
         let li = line.trim();
         let parts: Vec<&str> = li.split_whitespace().collect();
 
@@ -23,36 +36,80 @@ pub fn handle_connection(mut stream: TcpStream, store: Arc<Mutex<Store>>) {
 
         if parts[0].to_lowercase() == "set" {
             if parts.len() != 3 {
-                writeln!(stream, "error in number of arguments").unwrap();
+                match writeln!(stream, "error in number of arguments") {
+                    Ok(_) => {}
+                    Err(_) => {
+                        break;
+                    }
+                }
                 continue;
             }
-            let mut shared = store.lock().unwrap();
+            // let mut shared = store.lock().unwrap()
+            let mut shared = match store.lock() {
+                Ok(value) => value,
+                Err(_) => {
+                    // println!("error");
+                    break;
+                }
+            };
             let key = parts[1];
             let value = parts[2];
             shared.set(key.to_string(), value.to_string());
-            let mut file = OpenOptions::new()
-                .append(true)
-                .create(true)
-                .open(FILE_PATH)
-                .unwrap();
-            writeln!(file, "{}", li).unwrap();
+            let mut file = match OpenOptions::new().append(true).create(true).open(FILE_PATH) {
+                Ok(value) => value,
+                Err(_) => {
+                    break;
+                }
+            };
+            // .unwrap();
+            match writeln!(file, "{}", li) {
+                Ok(_) => {}
+                Err(_) => {
+                    break;
+                }
+            }
             drop(shared);
         } else if parts[0].to_lowercase() == "get" {
             if parts.len() != 2 {
-                writeln!(stream, "error in number of arguments").unwrap();
-                continue;
+                match writeln!(stream, "error in number of arguments") {
+                    Ok(_) => {}
+                    Err(_) => {
+                        break;
+                    }
+                }
             }
-            let shared = store.lock().unwrap();
+            let shared = match store.lock() {
+                Ok(value) => value,
+                Err(_) => {
+                    break;
+                }
+            };
             let key = parts[1];
 
             if let Some(val) = shared.get(key) {
-                writeln!(stream, "{}", val).unwrap();
+                match writeln!(stream, "{}", val) {
+                    Ok(_) => {}
+                    Err(_) => {
+                        break;
+                    }
+                }
             } else {
-                writeln!(stream, "(nil)").unwrap();
+                match writeln!(stream, "(nil)") {
+                    Ok(_) => {}
+                    Err(_) => {
+                        break;
+                    }
+                }
             }
             drop(shared);
         } else {
-            writeln!(stream, "invalid command").unwrap();
+            // let event= writeln!(stream, "invalid command");
+            match writeln!(stream, "invalid command") {
+                Ok(_) => {}
+                Err(_) => {
+                    break;
+                }
+            }
         }
     }
 }
