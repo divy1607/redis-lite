@@ -3,6 +3,7 @@ mod handler;
 mod server;
 mod store;
 mod config;
+mod rewrite;
 use crate::store::Store;
 fn main() {
     let store = Store::new();

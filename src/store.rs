@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 pub struct Store {
-    hash: HashMap<String, String>,
+    pub hash: HashMap<String, String>,
 }
 
 impl Store {
@@ -17,5 +17,9 @@ impl Store {
 
     pub fn get(&self, key: &str) -> Option<&String> {
         self.hash.get(key)
+    }
+
+    pub fn len(&self) -> usize {
+        self.hash.len()
     }
 }

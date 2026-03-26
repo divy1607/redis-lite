@@ -1,4 +1,5 @@
 use crate::config::FILE_PATH;
+use crate::{rewrite};
 use crate::{handler::handle_connection, store::Store};
 use std::{
     fs,
@@ -24,6 +25,7 @@ pub fn start_server(store: Arc<Mutex<Store>>) {
         }
     }
     drop(shared);
+    rewrite::rewrite(store.clone());
     let listener = TcpListener::bind("127.0.0.1:8000").unwrap();
 
     for stream in listener.incoming() {
