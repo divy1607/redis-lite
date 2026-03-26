@@ -14,7 +14,7 @@ pub fn handle_connection(mut stream: TcpStream, store: Arc<Mutex<Store>>) {
         Ok(s) => s,
         Err(e) => {
             eprintln!("Failed to clone stream: {}", e);
-            return; 
+            return;
         }
     };
 
