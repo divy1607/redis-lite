@@ -1,6 +1,10 @@
 use crate::config::FILE_PATH;
 use crate::rewrite;
 use crate::{handler::handle_connection, store::Store};
+use std::fs::OpenOptions;
+use std::sync::mpsc;
+use std::sync::mpsc::Sender;
+use std::io::Write;
 use std::{
     fs,
     net::TcpListener,
@@ -8,7 +12,31 @@ use std::{
     thread,
 };
 
+pub fn start() -> Option<Sender<String>> {
+    let (tx, rx) = mpsc::channel();
+    
+    let mut file = match OpenOptions::new().append(true).create(true).open(FILE_PATH) {
+        Ok(value) => value,
+        Err(e) => {
+            eprintln!("Failed to open file {}: {}", FILE_PATH, e);
+            return None; 
+        }
+    };
+
+    thread::spawn(move || {
+        for li in rx {
+            if let Err(e) = writeln!(file, "{}", li) {
+                eprintln!("Failed to write to file: {}", e);
+                break; 
+            }
+        }
+    });
+
+    Some(tx)
+}
+
 pub fn start_server(store: Arc<Mutex<Store>>) {
+    let tx = start();
     let contents = match fs::read_to_string(FILE_PATH) {
         Ok(value) => value,
         Err(_) => {
@@ -51,8 +79,12 @@ pub fn start_server(store: Arc<Mutex<Store>>) {
             }
         };
         let value = store.clone();
+        let tx_clone = match tx {
+            Some(ref value) => value.clone(),
+            None => return,
+        };
         thread::spawn(move || {
-            handle_connection(stream, value);
+            handle_connection(stream, value, tx_clone);
         });
     }
 }
