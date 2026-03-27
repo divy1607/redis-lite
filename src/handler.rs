@@ -1,17 +1,15 @@
-use crate::{config::FILE_PATH, server::start};
 use crate::store::Store;
+use std::sync::RwLock;
 use std::sync::mpsc::Sender;
 use std::{
-    fs::OpenOptions,
     io::{BufRead, BufReader},
     net::TcpStream,
-    sync::{Arc, Mutex},
+    sync::Arc,
 };
 
 use std::io::Write;
 
-pub fn handle_connection(mut stream: TcpStream, store: Arc<Mutex<Store>>, tx: Sender<String>) {
-
+pub fn handle_connection(mut stream: TcpStream, store: Arc<RwLock<Store>>, tx: Sender<String>) {
     let cloned_stream = match stream.try_clone() {
         Ok(s) => s,
         Err(e) => {
@@ -46,7 +44,7 @@ pub fn handle_connection(mut stream: TcpStream, store: Arc<Mutex<Store>>, tx: Se
                 }
                 continue;
             }
-            let mut shared = match store.lock() {
+            let mut shared = match store.write() {
                 Ok(value) => value,
                 Err(_) => {
                     break;
@@ -55,20 +53,13 @@ pub fn handle_connection(mut stream: TcpStream, store: Arc<Mutex<Store>>, tx: Se
             let key = parts[1];
             let value = parts[2];
             shared.set(key.to_string(), value.to_string());
-            // let mut file = match OpenOptions::new().append(true).create(true).open(FILE_PATH) {
-            //     Ok(value) => value,
-            //     Err(_) => {
-            //         break;
-            //     }
-            // };
-            // match writeln!(file, "{}", li) {
-            //     Ok(_) => {}
-            //     Err(_) => {
-            //         break;
-            //     }
-            // }
-            // drop(shared);
-            tx.send(li.to_string()).unwrap();
+            drop(shared);
+            match tx.send(li.to_string()) {
+                Ok(_) => {}
+                Err(_) => {
+                    break;
+                }
+            };
         } else if parts[0].to_lowercase() == "get" {
             if parts.len() != 2 {
                 match writeln!(stream, "error in number of arguments") {
@@ -78,7 +69,7 @@ pub fn handle_connection(mut stream: TcpStream, store: Arc<Mutex<Store>>, tx: Se
                     }
                 }
             }
-            let shared = match store.lock() {
+            let shared = match store.read() {
                 Ok(value) => value,
                 Err(_) => {
                     break;
@@ -101,7 +92,6 @@ pub fn handle_connection(mut stream: TcpStream, store: Arc<Mutex<Store>>, tx: Se
                     }
                 }
             }
-            drop(shared);
         } else {
             match writeln!(stream, "invalid command") {
                 Ok(_) => {}

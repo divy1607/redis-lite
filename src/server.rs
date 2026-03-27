@@ -2,24 +2,19 @@ use crate::config::FILE_PATH;
 use crate::rewrite;
 use crate::{handler::handle_connection, store::Store};
 use std::fs::OpenOptions;
-use std::sync::mpsc;
-use std::sync::mpsc::Sender;
 use std::io::Write;
-use std::{
-    fs,
-    net::TcpListener,
-    sync::{Arc, Mutex},
-    thread,
-};
+use std::sync::mpsc::Sender;
+use std::sync::{RwLock, mpsc};
+use std::{fs, net::TcpListener, sync::Arc, thread};
 
 pub fn start() -> Option<Sender<String>> {
     let (tx, rx) = mpsc::channel();
-    
+
     let mut file = match OpenOptions::new().append(true).create(true).open(FILE_PATH) {
         Ok(value) => value,
         Err(e) => {
             eprintln!("Failed to open file {}: {}", FILE_PATH, e);
-            return None; 
+            return None;
         }
     };
 
@@ -27,7 +22,7 @@ pub fn start() -> Option<Sender<String>> {
         for li in rx {
             if let Err(e) = writeln!(file, "{}", li) {
                 eprintln!("Failed to write to file: {}", e);
-                break; 
+                break;
             }
         }
     });
@@ -35,7 +30,7 @@ pub fn start() -> Option<Sender<String>> {
     Some(tx)
 }
 
-pub fn start_server(store: Arc<Mutex<Store>>) {
+pub fn start_server(store: Arc<RwLock<Store>>) {
     let tx = start();
     let contents = match fs::read_to_string(FILE_PATH) {
         Ok(value) => value,
@@ -43,7 +38,7 @@ pub fn start_server(store: Arc<Mutex<Store>>) {
             return;
         }
     };
-    let mut shared = match store.lock() {
+    let mut shared = match store.write() {
         Ok(value) => value,
         Err(_) => {
             return;

@@ -1,13 +1,18 @@
 use std::fs;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 use crate::config::FILE_PATH;
 use crate::store::Store;
 
-pub fn rewrite(store: Arc<Mutex<Store>>) {
+pub fn rewrite(store: Arc<RwLock<Store>>) {
     let contents = fs::read_to_string(FILE_PATH).unwrap_or_default();
     let (keys_len, snapshot) = {
-        let shared = store.lock().unwrap();
+        let shared = match store.read() {
+            Ok(value) => value,
+            Err(_) => {
+                return;
+            }
+        };
         let keys_len = shared.len();
         let snapshot: Vec<(String, String)> = shared
             .hash
