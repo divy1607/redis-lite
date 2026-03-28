@@ -1,5 +1,4 @@
 use crate::store::Store;
-use std::sync::RwLock;
 use std::sync::mpsc::Sender;
 use std::{
     io::{BufRead, BufReader},
@@ -9,7 +8,7 @@ use std::{
 
 use std::io::Write;
 
-pub fn handle_connection(mut stream: TcpStream, store: Arc<RwLock<Store>>, tx: Sender<String>) {
+pub fn handle_connection(mut stream: TcpStream, store: Arc<Store>, tx: Sender<String>) {
     let cloned_stream = match stream.try_clone() {
         Ok(s) => s,
         Err(e) => {
@@ -44,16 +43,17 @@ pub fn handle_connection(mut stream: TcpStream, store: Arc<RwLock<Store>>, tx: S
                 }
                 continue;
             }
-            let mut shared = match store.write() {
-                Ok(value) => value,
-                Err(_) => {
-                    break;
-                }
-            };
+            // let mut shared = match store.write() {
+            //     Ok(value) => value,
+            //     Err(_) => {
+            //         break;
+            //     }
+            // };
             let key = parts[1];
             let value = parts[2];
-            shared.set(key.to_string(), value.to_string());
-            drop(shared);
+            // shared.set(key.to_string(), value.to_string());
+            store.set(key.to_string(), value.to_string());
+            // drop(shared);
             match tx.send(li.to_string()) {
                 Ok(_) => {}
                 Err(_) => {
@@ -69,15 +69,15 @@ pub fn handle_connection(mut stream: TcpStream, store: Arc<RwLock<Store>>, tx: S
                     }
                 }
             }
-            let shared = match store.read() {
-                Ok(value) => value,
-                Err(_) => {
-                    break;
-                }
-            };
+            // let shared = match store.read() {
+            //     Ok(value) => value,
+            //     Err(_) => {
+            //         break;
+            //     }
+            // };
             let key = parts[1];
 
-            if let Some(val) = shared.get(key) {
+            if let Some(val) = store.get(key) {
                 match writeln!(stream, "{}", val) {
                     Ok(_) => {}
                     Err(_) => {

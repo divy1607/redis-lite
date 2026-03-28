@@ -1,13 +1,11 @@
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc};
 mod config;
 mod handler;
 mod rewrite;
 mod server;
 mod store;
-use crate::store::Store;
+use crate::store::{Store};
 fn main() {
-    let store = Store::new();
-    let hash: Arc<RwLock<Store>> = Arc::new(RwLock::new(store));
-
-    server::start_server(hash);
+    let store = Arc::new(Store::new(32));
+    server::start_server(store);
 }

@@ -1,23 +1,25 @@
 use std::fs;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use crate::config::FILE_PATH;
 use crate::store::Store;
 
-pub fn rewrite(store: Arc<RwLock<Store>>) {
+pub fn rewrite(store: Arc<Store>) {
     let contents = fs::read_to_string(FILE_PATH).unwrap_or_default();
     let (keys_len, snapshot) = {
-        let shared = match store.read() {
-            Ok(value) => value,
-            Err(_) => {
-                return;
-            }
-        };
-        let keys_len = shared.len();
-        let snapshot: Vec<(String, String)> = shared
-            .hash
+        let keys_len = store.len();
+        let snapshot: Vec<(String, String)> = store
+            .shards
             .iter()
-            .map(|(k, v)| (k.clone(), v.clone()))
+            .flat_map(|shard| {
+                let map = match shard.lock.read() {
+                    Ok(val) => val,
+                    Err(poisoned) => poisoned.into_inner(),
+                };
+                map.iter()
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect::<Vec<_>>()
+            })
             .collect();
         (keys_len, snapshot)
     };

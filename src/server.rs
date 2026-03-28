@@ -4,7 +4,7 @@ use crate::{handler::handle_connection, store::Store};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::sync::mpsc::Sender;
-use std::sync::{RwLock, mpsc};
+use std::sync:: {mpsc};
 use std::{fs, net::TcpListener, sync::Arc, thread};
 
 pub fn start() -> Option<Sender<String>> {
@@ -30,7 +30,7 @@ pub fn start() -> Option<Sender<String>> {
     Some(tx)
 }
 
-pub fn start_server(store: Arc<RwLock<Store>>) {
+pub fn start_server(store: Arc<Store>) {
     let tx = start();
     let contents = match fs::read_to_string(FILE_PATH) {
         Ok(value) => value,
@@ -38,12 +38,13 @@ pub fn start_server(store: Arc<RwLock<Store>>) {
             return;
         }
     };
-    let mut shared = match store.write() {
-        Ok(value) => value,
-        Err(_) => {
-            return;
-        }
-    };
+    // let mut shared = match store.write() {
+    //     Ok(value) => value,
+    //     Err(_) => {
+    //         return;
+    //     }
+    // };
+    // store.set(key, value);
     for line in contents.lines() {
         let line = line.trim();
         let parts: Vec<&str> = line.split_whitespace().collect();
@@ -54,10 +55,11 @@ pub fn start_server(store: Arc<RwLock<Store>>) {
         if parts[0].to_lowercase() == "set" {
             let key = parts[1];
             let value = parts[2];
-            shared.set(key.to_string(), value.to_string());
+            // shared.set(key.to_string(), value.to_string());
+            store.set(key.to_string(), value.to_string());
         }
     }
-    drop(shared);
+    // drop(shared);
     rewrite::rewrite(store.clone());
     let listener = match TcpListener::bind("127.0.0.1:8000") {
         Ok(value) => value,
