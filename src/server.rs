@@ -74,6 +74,7 @@ pub async fn start_server(store: Arc<Store>, tx: Sender<String>) {
         let tx_clone = tx.clone();
         tokio::spawn(async move {
             match handle_connection(stream, value, tx_clone).await {
+                Ok(_) => {}
                 Err(e) => {
                     eprintln!("some error occured: {:?}", e);
                 }

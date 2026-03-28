@@ -1,118 +1,82 @@
 use crate::store::Store;
+use std::str::from_utf8;
+use std::sync::Arc;
 use std::sync::mpsc::Sender;
-use std::{
-    io::{BufRead, BufReader},
-    // net::TcpStream,
-    sync::Arc,
-};
 
-use std::io::Write;
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
-pub async fn handle_connection(mut stream: TcpStream, store: Arc<Store>, tx: Sender<String>) {
-    // let cloned_stream = match stream.try_clone() {
-    //     Ok(s) => s,
-    //     Err(e) => {
-    //         eprintln!("Failed to clone stream: {}", e);
-    //         return;
-    //     }
-    // };
-
-    let mut buf =[0; 1024];
+pub async fn handle_connection(
+    mut stream: TcpStream,
+    store: Arc<Store>,
+    tx: Sender<String>,
+) -> Result<(), ()> {
+    let mut buf = [0; 1024];
 
     loop {
-        let line = match stream.read(&mut buf).await {
-            Ok(value) => value,
-            Err(_) => {
-                break;
-            }
+        let n = match stream.read(&mut buf).await {
+            Ok(n) => n,
+            Err(_) => return Err(()),
         };
-    }
-
-    // let buf_reader = BufReader::new(cloned_stream);
-
-
-    for line in buf_reader.lines() {
-        let line = match line {
-            Ok(value) => value,
-            Err(_) => {
-                break;
-            }
-        };
-        let li = line.trim();
-        let parts: Vec<&str> = li.split_whitespace().collect();
-
-        if parts.is_empty() {
-            continue;
+        if n == 0 {
+            break;
         }
-
-        if parts[0].to_lowercase() == "set" {
-            if parts.len() != 3 {
-                match writeln!(stream, "error in number of arguments") {
-                    Ok(_) => {}
-                    Err(_) => {
-                        break;
-                    }
-                }
+        let input = match from_utf8(&buf[0..n]) {
+            Ok(val) => val,
+            Err(_) => break,
+        };
+        for line in input.split('\n') {
+            let parts: Vec<&str> = line.trim().split_whitespace().collect();
+            if parts.is_empty() {
                 continue;
             }
-            // let mut shared = match store.write() {
-            //     Ok(value) => value,
-            //     Err(_) => {
-            //         break;
-            //     }
-            // };
-            let key = parts[1];
-            let value = parts[2];
-            // shared.set(key.to_string(), value.to_string());
-            store.set(key.to_string(), value.to_string());
-            // drop(shared);
-            match tx.send(li.to_string()) {
-                Ok(_) => {}
-                Err(_) => {
-                    break;
-                }
-            };
-        } else if parts[0].to_lowercase() == "get" {
-            if parts.len() != 2 {
-                match writeln!(stream, "error in number of arguments") {
-                    Ok(_) => {}
-                    Err(_) => {
+            if parts[0].eq_ignore_ascii_case("set") {
+                if parts.len() != 3 {
+                    if stream
+                        .write_all(b"error in number of arguments\n")
+                        .await
+                        .is_err()
+                    {
                         break;
                     }
+                    continue;
                 }
-            }
-            // let shared = match store.read() {
-            //     Ok(value) => value,
-            //     Err(_) => {
-            //         break;
-            //     }
-            // };
-            let key = parts[1];
+                store.set(parts[1].to_string(), parts[2].to_string());
 
-            if let Some(val) = store.get(key) {
-                match writeln!(stream, "{}", val) {
-                    Ok(_) => {}
-                    Err(_) => {
+                if tx.send(line.to_string()).is_err() {
+                    break;
+                }
+            } else if parts[0].eq_ignore_ascii_case("get") {
+                if parts.len() != 2 {
+                    if stream
+                        .write_all(b"error in number of arguments\n")
+                        .await
+                        .is_err()
+                    {
+                        break;
+                    }
+                    continue;
+                }
+                if let Some(val) = store.get(parts[1]) {
+                    if stream
+                        .write_all(format!("{}\n", val).as_bytes())
+                        .await
+                        .is_err()
+                    {
+                        break;
+                    }
+                } else {
+                    if stream.write_all(b"(nil)\n").await.is_err() {
                         break;
                     }
                 }
             } else {
-                match writeln!(stream, "(nil)") {
-                    Ok(_) => {}
-                    Err(_) => {
-                        break;
-                    }
-                }
-            }
-        } else {
-            match writeln!(stream, "invalid command") {
-                Ok(_) => {}
-                Err(_) => {
+                if stream.write_all(b"invalid command\n").await.is_err() {
                     break;
                 }
             }
         }
     }
+
+    Ok(())
 }
