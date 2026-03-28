@@ -2,22 +2,36 @@ use crate::store::Store;
 use std::sync::mpsc::Sender;
 use std::{
     io::{BufRead, BufReader},
-    net::TcpStream,
+    // net::TcpStream,
     sync::Arc,
 };
 
 use std::io::Write;
+use tokio::io::AsyncReadExt;
+use tokio::net::TcpStream;
 
-pub fn handle_connection(mut stream: TcpStream, store: Arc<Store>, tx: Sender<String>) {
-    let cloned_stream = match stream.try_clone() {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("Failed to clone stream: {}", e);
-            return;
-        }
-    };
+pub async fn handle_connection(mut stream: TcpStream, store: Arc<Store>, tx: Sender<String>) {
+    // let cloned_stream = match stream.try_clone() {
+    //     Ok(s) => s,
+    //     Err(e) => {
+    //         eprintln!("Failed to clone stream: {}", e);
+    //         return;
+    //     }
+    // };
 
-    let buf_reader = BufReader::new(cloned_stream);
+    let mut buf =[0; 1024];
+
+    loop {
+        let line = match stream.read(&mut buf).await {
+            Ok(value) => value,
+            Err(_) => {
+                break;
+            }
+        };
+    }
+
+    // let buf_reader = BufReader::new(cloned_stream);
+
 
     for line in buf_reader.lines() {
         let line = match line {
